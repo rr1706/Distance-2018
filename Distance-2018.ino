@@ -117,8 +117,8 @@ void loop() {
 // Set outputs
 // A0 = active-low gripper switch.
   digitalWrite(A0, !hasCube);
-  digitalWrite(A1, !cubeInPosition);
-  digitalWrite(A2, !cubeActionable);
+  digitalWrite(A1, cubeInPosition);
+  digitalWrite(A2, cubeActionable);
 
 // Debugging output
 
