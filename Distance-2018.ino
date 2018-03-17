@@ -15,15 +15,19 @@
 #define MAX_GRIP_VALUE 150
 #define MIN_CUBE_DISTANCE 35
 #define MAX_CUBE_DISTANCE 250
+#define NUM_SENSORS 5
 
-// Set up new Soreware Wire with SDA=pin 2, SCL=pin 3
-SoftwareWire softWire1(2, 3);
-SoftwareWire softWire2(4, 5);
-SoftwareWire softWire3(6, 7);
-SoftwareWire softWire4(8, 9);
-SoftwareWire softWire5(10, 11);
 char* goodValues[] = {"12","2","3","23","13","24","34","124","134"};
 char* actionableValues[] = {"123","234","1234"};
+
+// Create an array of Software I2C interfaces, one for each sensor.
+SoftwareWire wires[NUM_SENSORS] = {
+  SoftwareWire(2,3),
+  SoftwareWire(4,5),
+  SoftwareWire(6,7),
+  SoftwareWire(8,9),
+  SoftwareWire(10,11)
+};
 
 #define numGood (sizeof(goodValues)/sizeof(char *))
 #define numActionable (sizeof(actionableValues)/sizeof(char *))
@@ -45,13 +49,11 @@ void setup() {
   Serial.begin(115200);
 
   // Initialize the range finders...
+  for (int i = 0; i < NUM_SENSORS; i++) {
+    initSensor(wires[i]);
+  }
 
-  initSensor(softWire1);
-  initSensor(softWire2);
-  initSensor(softWire3);
-  initSensor(softWire4);
-  initSensor(softWire5);
-
+  // Set up analog pins as outputs to send signals to RoboRIO.
   pinMode(A0, OUTPUT);
   pinMode(A1, OUTPUT);
   pinMode(A2, OUTPUT);
@@ -60,6 +62,7 @@ void setup() {
 
 void initSensor(SoftwareWire &wire) {
 
+  // Start up Virtual I2C port.
   wire.begin();
   
   // Set 2.8V mode
@@ -86,12 +89,18 @@ void initSensor(SoftwareWire &wire) {
   
 }
 
+/**
+ * Hardware I2C slave function to send data to the I2C master on request.
+ */
 void requestEvent() {
   short data = distances[readIndex];
   Wire.write((data >> 8) & 0xff);
   Wire.write(data        & 0xff);
 }
 
+/**
+ * Hardware I2C slave function to receive data from the I2C master.
+ */
 void receiveEvent(int howMany) {
   while (1 < Wire.available()) { // loop through all but the last
     char c = Wire.read(); // receive byte as a character
@@ -99,35 +108,41 @@ void receiveEvent(int howMany) {
   readIndex = Wire.read();    // receive byte as an integer
 }
 
+
+/**
+ * Main loop.
+ */
 void loop() {
 
-// read inputs
-  distances[0] = processSensor(softWire1, distances[0]);
-  distances[1] = processSensor(softWire2, distances[1]);
-  distances[2] = processSensor(softWire3, distances[2]);
-  distances[3] = processSensor(softWire4, distances[3]);
-  distances[4] = processSensor(softWire5, distances[4]);
+  // read inputs
+  for (int i = 0; i < NUM_SENSORS; i++) {
+    distances[i] = processSensor(wires[i], distances[i]);
+  }
 
-// Look for good states
-// Signal cube in gripper if we have a good value between 1.5 and 6 inches.
+  // Look for good states
+  // Signal cube in gripper if we have a good value between 1.5 and 6 inches.
   bool hasCube = (distances[4] > MIN_GRIP_VALUE) && (distances[4] < MAX_GRIP_VALUE);
   bool cubeInPosition = checkForGoodCubes(distances);
   bool cubeActionable = checkForActionableCubes(distances);
 
-// Set outputs
-// A0 = active-low gripper switch.
+  // Set outputs
+  // A0 = active-low gripper switch.
   digitalWrite(A0, !hasCube);
+
+  // A1 --> Cube in good position
   digitalWrite(A1, cubeInPosition);
+
+  // A2 --> Cube in poor position but driver may act if desired
   digitalWrite(A2, cubeActionable);
 
 // Debugging output
-
+/*
   for (int i = 0; i < 8; i++) {
     Serial.print("\t");
     Serial.print(distances[i] / 25.4);
   }
   Serial.println();
-
+*/
   Serial.print(hasCube ? "Got Cube " : "No Cube  ");
   Serial.print(cubeInPosition ? "Ready     " : "Not Ready ");
   Serial.println(cubeActionable ? "Strafe" : "");
@@ -143,20 +158,7 @@ int processSensor(SoftwareWire &wire, int oldValue) {
   return oldValue;
 }
 
-bool has_value(SoftwareWire &wire) {
-  return 0 != (I2C_read_byte(wire, VL53L0X_ADDR, VL53L0X_RESULT_INTR_STATUS) & 0x07);
-}
-
-int read_range_mm(SoftwareWire &wire) {
-  int range_mm = 0;
-
-  // Read data.
-  range_mm = I2C_read_word(wire, VL53L0X_ADDR, (VL53L0X_RESULT_RANGE_STATUS + 10));
-  I2C_write_byte(wire, VL53L0X_ADDR, VL53L0X_SYS_INTR_CLR, 0x01);  // clear any interrupt state
-  return range_mm;
-}
-
-bool checkForGoodCubes(int distances[]) {
+bool checkForGoodCubes(short distances[]) {
   String currentState = String("");
   for (int i = 0; i < 4; i++) {
     if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < MAX_CUBE_DISTANCE) {
@@ -171,7 +173,7 @@ bool checkForGoodCubes(int distances[]) {
   return false;
 }
 
-bool checkForActionableCubes(int distances[]) {
+bool checkForActionableCubes(short distances[]) {
   String currentState = String("");
   for (int i = 0; i < 4; i++) {
     if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < MAX_CUBE_DISTANCE) {
@@ -184,9 +186,41 @@ bool checkForActionableCubes(int distances[]) {
     }
   }
   return false;
-  
 }
 
+
+/**
+ * Ask the sensor if it has a good reading.  Not really used in continuous measurement mode.
+ */
+bool has_value(SoftwareWire &wire) {
+  return 0 != (I2C_read_byte(wire, VL53L0X_ADDR, VL53L0X_RESULT_INTR_STATUS) & 0x07);
+}
+
+/**
+ * Read the output from a sensor attached to the specified SoftwareWire software i2c port.
+ * 
+ * Returns the distance in mm.
+ */
+int read_range_mm(SoftwareWire &wire) {
+  int range_mm = 0;
+
+  // Read data.
+  range_mm = I2C_read_word(wire, VL53L0X_ADDR, (VL53L0X_RESULT_RANGE_STATUS + 10));
+  I2C_write_byte(wire, VL53L0X_ADDR, VL53L0X_SYS_INTR_CLR, 0x01);  // clear any interrupt state
+  return range_mm;
+}
+
+/**
+ * ==============================================
+ * ==   This code is used to manage the sensors 
+ * ==   and should not be changed unless you 
+ * ==   REALLY know what you are doing.
+ * ==============================================
+ */
+
+/**
+ * Tell the sensor how often to have a reading ready.
+ */
 bool setSignalRateLimit(SoftwareWire &wire, float limit_Mcps)
 {
   if (limit_Mcps < 0 || limit_Mcps > 511.99) { return false; }
