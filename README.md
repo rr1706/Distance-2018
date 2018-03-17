@@ -8,4 +8,7 @@ Four sensors (#'s 0 - 3) are used across the front of the robot to detect the pr
 A fifth sensor is used in the gripper to determine if we have a good hold on a cube.
 
 Three analog outputs are used as digital outs to send signals to the RoboRIO robot controller.
-    * A0 -->
+    * A0 -->  Gripper  (Active Low)
+    * A1 -->  Cube in good position (Active High)
+    * A2 -->  Cube in poor but actionable position (Active High)
+    

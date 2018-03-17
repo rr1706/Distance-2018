@@ -11,14 +11,20 @@
 #define   VL53L0X_MSRC_CONFIG_CONTROL       0x60
 #define   VL53L0X_SYSTEM_SEQUENCE_CONFIG    0x01
 
-#define MIN_GRIP_VALUE 35
-#define MAX_GRIP_VALUE 150
-#define MIN_CUBE_DISTANCE 35
-#define MAX_CUBE_DISTANCE 250
 #define NUM_SENSORS 5
 
+#define MIN_GRIP_VALUE 35
+#define MAX_GRIP_VALUE 130
+
+#define MIN_CLOSE_VALUE 35
+#define MAX_CLOSE_VALUE 250
+
+#define MIN_CUBE_DISTANCE 35
+#define NEAR_CUBE_DISTANCE 250
+#define MAX_CUBE_DISTANCE 330
+
 char* goodValues[] = {"12","2","3","23","13","24","34","124","134"};
-char* actionableValues[] = {"123","234","1234"};
+char* actionableValues[] = {"123","234","1234","1","4","14"};
 
 // Create an array of Software I2C interfaces, one for each sensor.
 SoftwareWire wires[NUM_SENSORS] = {
@@ -121,13 +127,15 @@ void loop() {
 
   // Look for good states
   // Signal cube in gripper if we have a good value between 1.5 and 6 inches.
-  bool hasCube = (distances[4] > MIN_GRIP_VALUE) && (distances[4] < MAX_GRIP_VALUE);
-  bool cubeInPosition = checkForGoodCubes(distances);
-  bool cubeActionable = checkForActionableCubes(distances);
+  bool hasCubeHigh = (distances[4] > MIN_GRIP_VALUE) && (distances[4] < MAX_GRIP_VALUE);
+  bool hasCubeLow = (distances[4] > MIN_CLOSE_VALUE) && (distances[4] < MAX_CLOSE_VALUE);
+  
+  bool cubeInPosition = checkForGoodCubes(distances, NEAR_CUBE_DISTANCE) && !checkForActionableCubes(distances, MAX_CUBE_DISTANCE);
+  bool cubeActionable = checkForActionableCubes(distances, NEAR_CUBE_DISTANCE);
 
   // Set outputs
   // A0 = active-low gripper switch.
-  digitalWrite(A0, !hasCube);
+  digitalWrite(A0, !hasCubeHigh);
 
   // A1 --> Cube in good position
   digitalWrite(A1, cubeInPosition);
@@ -135,19 +143,25 @@ void loop() {
   // A2 --> Cube in poor position but driver may act if desired
   digitalWrite(A2, cubeActionable);
 
-// Debugging output
-/*
-  for (int i = 0; i < 8; i++) {
-    Serial.print("\t");
-    Serial.print(distances[i] / 25.4);
-  }
-  Serial.println();
-*/
-  Serial.print(hasCube ? "Got Cube " : "No Cube  ");
-  Serial.print(cubeInPosition ? "Ready     " : "Not Ready ");
-  Serial.println(cubeActionable ? "Strafe" : "");
+  // A3 --> Cube in poor position but driver may act if desired
+  digitalWrite(A3, hasCubeLow);
 
-  delay(50);
+// Debugging output
+  if (false) {
+  
+    for (int i = 0; i < 8; i++) {
+      Serial.print(distances[i]);
+      Serial.print("\t");
+      //Serial.print(distances[i] / 25.4);
+    }
+  
+    Serial.print(hasCubeHigh ?      "Got Cube         " : "No Cube          ");
+    Serial.print(hasCubeLow ?       "Cube Close       " : "Cube Not Close   ");
+    Serial.print(cubeInPosition ?   "Ready            " : "Not Ready        ");
+    Serial.println(cubeActionable ? "Strafe" : "");
+  }
+
+  delay(80);
 }
 
 int processSensor(SoftwareWire &wire, int oldValue) {
@@ -158,10 +172,10 @@ int processSensor(SoftwareWire &wire, int oldValue) {
   return oldValue;
 }
 
-bool checkForGoodCubes(short distances[]) {
+bool checkForGoodCubes(short distances[], int threshold) {
   String currentState = String("");
   for (int i = 0; i < 4; i++) {
-    if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < MAX_CUBE_DISTANCE) {
+    if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < threshold) {
       currentState += (char)('1' + i);
     }
   }
@@ -173,10 +187,10 @@ bool checkForGoodCubes(short distances[]) {
   return false;
 }
 
-bool checkForActionableCubes(short distances[]) {
+bool checkForActionableCubes(short distances[], int threshold) {
   String currentState = String("");
   for (int i = 0; i < 4; i++) {
-    if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < MAX_CUBE_DISTANCE) {
+    if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < threshold) {
       currentState += (char)('1' + i);
     }
   }
