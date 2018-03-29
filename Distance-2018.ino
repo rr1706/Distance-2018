@@ -12,7 +12,7 @@
 #define MAX_GRIP_VALUE 130
 
 #define MIN_CLOSE_VALUE 22
-#define MAX_CLOSE_VALUE 270
+#define MAX_CLOSE_VALUE 250
 
 #define MIN_CUBE_DISTANCE 30
 #define NEAR_CUBE_DISTANCE 250
@@ -23,7 +23,8 @@
 template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
 
 String goodValues[] = {"12","2","3","23","13","24","34","124","134"};
-String actionableValues[] = {"123","234","1234","1","4","14"};
+String actionableValues[] = {"123","234","1","4","14"};
+String wallValues[] = {"1234"};
 
 CRGB leds[NUM_LEDS] = {CRGB::Blue};
 
@@ -117,6 +118,7 @@ void loop() {
   
   bool cubeInPosition = checkForGoodCubes(distances, NEAR_CUBE_DISTANCE) && !checkForActionableCubes(distances, MAX_CUBE_DISTANCE);
   bool cubeActionable = checkForActionableCubes(distances, NEAR_CUBE_DISTANCE);
+  bool againstWall = checkForWall(distances, NEAR_CUBE_DISTANCE);
 
   // Add delay to prevent false positives.
   if (!cubeInPosition) {
@@ -132,8 +134,8 @@ void loop() {
   // A1 --> Cube in good position
   digitalWrite(A1, cubeInPosition && (currentGoodSensorCount == 0));
 
-  // A2 --> Cube in poor position but driver may act if desired
-  digitalWrite(A2, cubeActionable);
+  // A2 --> We think we're up against a wall.
+  digitalWrite(A2, againstWall);
 
   // A3 --> Cube in poor position but driver may act if desired
   digitalWrite(A3, hasCubeLow);
@@ -160,10 +162,10 @@ void loop() {
   }
   */
 
-  leds[0] = distances[0] > MIN_CUBE_DISTANCE && distances[0] < MAX_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
-  leds[1] = distances[1] > MIN_CUBE_DISTANCE && distances[1] < MAX_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
-  leds[2] = distances[2] > MIN_CUBE_DISTANCE && distances[2] < MAX_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
-  leds[3] = distances[3] > MIN_CUBE_DISTANCE && distances[3] < MAX_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
+  leds[0] = distances[0] > MIN_CUBE_DISTANCE && distances[0] < NEAR_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
+  leds[1] = distances[1] > MIN_CUBE_DISTANCE && distances[1] < NEAR_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
+  leds[2] = distances[2] > MIN_CUBE_DISTANCE && distances[2] < NEAR_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
+  leds[3] = distances[3] > MIN_CUBE_DISTANCE && distances[3] < NEAR_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
 
   leds[5] = cubeInPosition ? CRGB::Blue : CRGB::Red;
   leds[6] = cubeActionable ? CRGB::Blue : CRGB::Red;
@@ -208,6 +210,22 @@ void loop() {
 int processSensor(SoftwareWire &wire, int oldValue) {
   int range_mm = read_range_mm(wire);
   return range_mm;
+}
+
+bool checkForWall(short distances[], int threshold) {
+  String currentState = String("");
+  for (int i = 0; i < 4; i++) {
+    if (distances[i] > MIN_CUBE_DISTANCE && distances[i] < threshold) {
+      currentState += (char)('1' + i);
+    }
+  }
+  for (int i = 0; i < ArraySize(wallValues); i++) {
+    if (currentState.equals(wallValues[i])) {
+      return true;
+    }
+  }
+  return false;
+   
 }
 
 bool checkForGoodCubes(short distances[], int threshold) {
