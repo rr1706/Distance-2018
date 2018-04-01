@@ -209,6 +209,9 @@ void loop() {
 
 int processSensor(SoftwareWire &wire, int oldValue) {
   int range_mm = read_range_mm(wire);
+  if (range_mm == 0) {
+    initSensor(wire);
+  }
   return range_mm;
 }
 
