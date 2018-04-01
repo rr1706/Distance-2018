@@ -23,8 +23,8 @@
 template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
 
 String goodValues[] = {"12","2","3","23","13","24","34","124","134"};
-String actionableValues[] = {"123","234","1","4","14"};
-String wallValues[] = {"1234"};
+String actionableValues[] = {"1","4","14"};
+String wallValues[] = {"123","234","1234"};
 
 CRGB leds[NUM_LEDS] = {CRGB::Blue};
 
