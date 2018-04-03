@@ -19,17 +19,16 @@
 #define MAX_CUBE_DISTANCE 330
 
 #define GOOD_SENSOR_DELAY 5
+#define SENSOR_GRIPPER 4
 
 template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
 
-String goodValues[] = {"12","2","3","23","13","24","34","124","134"};
-String actionableValues[] = {"1","4","14"};
-String wallValues[] = {"123","234","1234"};
+const String goodValues[] = {"12","2","3","23","13","24","34","124","134"};
+const String actionableValues[] = {"1","4","14","123","234","1234"};
+const String wallValues[] = {"123","234","1234"};
 
 CRGB leds[NUM_LEDS] = {CRGB::Blue};
 
-int qq = 0;
-int ledDirection = 1;
 
 // Create an array of Software I2C interfaces, one for each sensor.
 SoftwareWire wires[NUM_SENSORS] = {
@@ -40,7 +39,7 @@ SoftwareWire wires[NUM_SENSORS] = {
   SoftwareWire(10,11)
 };
 
-short distances[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+short distances[NUM_SENSORS] = {0, 0, 0, 0, 0};
 byte  readIndex = 0;
 int currentGoodSensorCount = GOOD_SENSOR_DELAY;
 
@@ -50,10 +49,12 @@ void setup() {
   while(!Serial);
   Serial.print("Number of good items: ");Serial.println(ArraySize(goodValues));
 
+/*
   // Start the i2c interface as slave at address 8.
   Wire.begin(8);
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent);
+*/
   
   Serial.begin(115200);
 
@@ -113,8 +114,8 @@ void loop() {
 
   // Look for good states
   // Signal cube in gripper if we have a good value between 1.5 and 6 inches.
-  bool hasCubeHigh = (distances[4] > MIN_GRIP_VALUE) && (distances[4] < MAX_GRIP_VALUE);
-  bool hasCubeLow = (distances[4] > MIN_CLOSE_VALUE) && (distances[4] < MAX_CLOSE_VALUE);
+  bool hasCubeHigh = (distances[SENSOR_GRIPPER] > MIN_GRIP_VALUE) && (distances[SENSOR_GRIPPER] < MAX_GRIP_VALUE);
+  bool hasCubeLow = (distances[SENSOR_GRIPPER] > MIN_CLOSE_VALUE) && (distances[SENSOR_GRIPPER] < MAX_CLOSE_VALUE);
   
   bool cubeInPosition = checkForGoodCubes(distances, NEAR_CUBE_DISTANCE) && !checkForActionableCubes(distances, MAX_CUBE_DISTANCE);
   bool cubeActionable = checkForActionableCubes(distances, NEAR_CUBE_DISTANCE);
@@ -143,7 +144,7 @@ void loop() {
 // Debugging output
   if (true) {
   
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < NUM_SENSORS; i++) {
       Serial.print(distances[i]);
       Serial.print("\t");
       //Serial.print(distances[i] / 25.4);
@@ -152,15 +153,10 @@ void loop() {
     Serial.print(hasCubeHigh ?      "Got Cube         " : "No Cube          ");
     Serial.print(hasCubeLow ?       "Cube Close       " : "Cube Not Close   ");
     Serial.print(cubeInPosition ?   "Ready            " : "Not Ready        ");
+    Serial.print(againstWall ?      "Wall  " : "      ");
     Serial.println(cubeActionable ? "Strafe" : "");
   }
 
-/*
-  int q = distances[4] / 20; //(distances[4] * NUM_LEDS) / MIN_GRIP_VALUE;
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = i > q ? CRGB::Blue : CRGB::Red;
-  }
-  */
 
   leds[0] = distances[0] > MIN_CUBE_DISTANCE && distances[0] < NEAR_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
   leds[1] = distances[1] > MIN_CUBE_DISTANCE && distances[1] < NEAR_CUBE_DISTANCE ? CRGB::Blue : CRGB::Red;
@@ -173,17 +169,6 @@ void loop() {
   leds[8] = hasCubeLow ? CRGB::Blue : CRGB::Red;
   leds[9] = hasCubeHigh ? CRGB::Blue : CRGB::Red;
 
-
-/*
-  qq = max(14, (qq + ledDirection) % NUM_LEDS);
-  if (qq == 14) {
-    ledDirection = 1;
-  }
-  if (qq == NUM_LEDS - 1) {
-    ledDirection = -1;
-  }
-  FastLED.setBrightness(qq / 3);
-  */
 
   int strandColor = CRGB::Blue;
   int topMark = 11;
