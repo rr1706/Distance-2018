@@ -1,3 +1,11 @@
+/**
+ * Handles multiple VL53L0X sensors and provides digital signals to 
+ * the RoboRio when certain sensor patterns are found.
+ * 
+ * Requires: https://github.com/rr1706/vl53l0x-arduino
+ *           https://github.com/rr1706/SoftwareWire
+ */
+
 #include <SoftwareWire.h>
 #include <Wire.h>
 #include <FastLED.h>
