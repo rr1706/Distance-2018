@@ -65,21 +65,22 @@ void setup() {
 
   // Wait for serial port to come online.
   while(!Serial);
+  Serial.begin(115200);
+
   Serial.print("Number of good items: ");Serial.println(ArraySize(goodValues));
 
 
   // Start the i2c interface as slave at address 8.
-  /*
+  
   Wire.begin(8);
+  /*
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent);
   */
   
-  Serial.begin(115200);
-
   // Initialize the range finders...
   for (int i = 0; i < NUM_SENSORS; i++) {
-    //initSensor(wires[i]);
+    wires[i].begin();
     sensors[i].init();
     sensors[i].setTimeout(50);
     sensors[i].startContinuous();
@@ -90,7 +91,7 @@ void setup() {
   pinMode(A1, OUTPUT);
   pinMode(A2, OUTPUT);
   pinMode(A3, OUTPUT);
-  pinMode(A4, OUTPUT);
+//  pinMode(A4, OUTPUT);
 //  pinMode(A5, OUTPUT);
 
   // LEDs
@@ -100,6 +101,8 @@ void setup() {
   for (int i = 0; i < NUM_LEDS; i++) {
    // leds[i] = CRGB::Blue;
   }
+
+  Serial.println("Ready for action.  Enter 1 to enable debugging, or 0 to disable.");
 
 }
 
@@ -172,7 +175,7 @@ void loop() {
   digitalWrite(A3, hasCubeLow);
 
   // A4 --> found a stack of cubes
-  digitalWrite(A4, foundStack);
+//  digitalWrite(A4, foundStack);
 
 // Debugging output
   if (debugging) {
@@ -292,5 +295,3 @@ bool checkForCubeStack(short distances[]) {
   }
   return false;
 }
-
-
