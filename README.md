@@ -20,3 +20,5 @@ This project uses two modofied libraries:
     * https://github.com/rr1706/SoftwareWire
 
 
+The circuit board uses an Arduino Mini and can be found here:
+    * https://oshpark.com/shared_projects/LGodItuq
